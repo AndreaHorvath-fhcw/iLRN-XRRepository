@@ -1,7 +1,7 @@
 name: Add Resource PR
 on:
   issues:
-    types: [opened, edited, labeled]
+    types: [opened, edited]
 
 permissions:
   contents: write
@@ -10,7 +10,6 @@ permissions:
 
 jobs:
   build-pr:
-    if: contains(github.event.issue.labels.*.name, 'new resource')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,8 +24,9 @@ jobs:
             const path = require('path');
             const body = context.payload.issue.body || '';
 
+            // Issue Forms render fields as "### Field Label" followed by the value
             function getField(label) {
-              const re = new RegExp(`\n\s*${label}\s*\n+([^\n][\s\S]*?)(?=\n\s*\n|\n\s*###|$)`, 'i');
+              const re = new RegExp(String.raw`^###\s*${label}\s*\n+([\s\S]*?)(?=\n^###\s|$)`, 'im');
               const m = body.match(re);
               return m ? m[1].trim() : '';
             }
@@ -35,50 +35,56 @@ jobs:
             const url = getField('URL');
             const category = getField('Category');
             const description = getField('Description');
-            const tagsLine = getField('Tags (comma-separated)') || getField('Tags');
+            const tagsLine = getField('Tags \(comma-separated\)|Tags');
             const tags = tagsLine ? tagsLine.split(',').map(s=>s.trim()).filter(Boolean) : [];
+
+            // Only proceed if it looks like the Add Resource form
+            const looksLikeForm = !!(title || url || category);
+            if (!looksLikeForm) {
+              core.info('Issue does not look like an Add Resource form; exiting.');
+              core.setOutput('skipped', 'true');
+              return;
+            }
 
             if (!title || !url || !category) {
               core.setFailed('Missing required fields (title, url, category).');
               return;
             }
 
-            // basic URL sanity
             try { new URL(url); } catch (e) { core.setFailed('Invalid URL.'); return; }
 
             const dataPath = path.join(process.env.GITHUB_WORKSPACE, 'data', 'resources.json');
             let items = [];
             if (fs.existsSync(dataPath)) {
-              items = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+              items = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]');
+            } else {
+              // ensure directory exists
+              fs.mkdirSync(path.dirname(dataPath), { recursive: true });
             }
 
-            // Prevent duplicates by URL
             if (items.some(it => (it.url || '').toLowerCase() === url.toLowerCase())) {
               core.warning('Duplicate URL detected; skipping append.');
               core.setOutput('skipped', 'true');
-            } else {
-              items.push({ title, url, category, description, tags });
-              // sort by title
-              items.sort((a,b)=>a.title.localeCompare(b.title));
-              fs.writeFileSync(dataPath, JSON.stringify(items, null, 2)+'\n');
-              core.setOutput('skipped', 'false');
+              return;
             }
 
-            // Create a safe branch/slug
+            items.push({ title, url, category, description, tags });
+            items.sort((a,b)=>a.title.localeCompare(b.title));
+            fs.writeFileSync(dataPath, JSON.stringify(items, null, 2)+'\n');
+
+            // Create a branch name
             const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-            core.setOutput('branch', `add-resource-${{slug}}`);
+            core.setOutput('branch', `add-resource-${slug}`);
 
       - name: Create Pull Request
         if: steps.parse.outputs.skipped != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
           branch: ${{ steps.parse.outputs.branch }}
-          commit-message: "Add resource: ${{ github.event.issue.title || 'New resource' }}"
+          commit-message: "Add resource from issue #${{ github.event.issue.number }}"
           title: "Add resource: ${{ github.event.issue.title || 'New resource' }}"
           body: |
-            This PR was auto-generated from issue #${{ github.event.issue.number }}.
-            - Title: parsed from issue form
-            - Created by: @${{ github.actor }}
+            This PR was auto-generated from issue #${{ github.event.issue.number }} by @${{ github.actor }}.
           labels: |
             data
           add-paths: |
