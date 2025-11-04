@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>iLRN XR Repository</title>
-  <!-- Tabulator (sortable/filterable table) -->
   <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
   <style>
@@ -53,75 +52,76 @@
   </main>
 
   <script>
-    const DATA_URL = './data/resources.json';
+    // Cache-busting so JSON updates show up immediately
+    const DATA_URL = './data/resources.json?t=' + Date.now();
 
     function uniq(values){ return [...new Set(values.filter(Boolean))]; }
 
     async function fetchData(){
       try{
-        const res = await fetch(DATA_URL, {cache:'no-store'});
+        const res = await fetch(DATA_URL, { cache: 'no-store' });
         if(!res.ok) throw new Error('HTTP '+res.status);
         const json = await res.json();
-        return Array.isArray(json) ? json : json.items || [];
+        if (!Array.isArray(json)) {
+          console.error('resources.json must be an array of objects. Got:', json);
+          return [];
+        }
+        return json;
       }catch(err){
-        console.warn('Falling back to demo data:', err);
-        return [
-          {title:'Unity Learn', category:'Tutorial', description:'Official Unity tutorials for XR.', url:'https://learn.unity.com', tags:['unity','xr','tutorial']},
-          {title:'A-Frame Docs', category:'Documentation', description:'WebXR framework for VR on the web.', url:'https://aframe.io', tags:['webxr','vr','javascript']}
-        ];
+        console.error('Failed to load data/resources.json:', err);
+        return [];
       }
     }
 
-    let table;
+    let table, data = [], sel, q;
     async function init(){
-      const data = await fetchData();
+      data = await fetchData();
 
-      const categories = uniq(data.map(d=>d.category)).sort();
-      const sel = document.getElementById('categoryFilter');
-      categories.forEach(c=>{ const opt = document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
+      sel = document.getElementById('categoryFilter');
+      q = document.getElementById('q');
+
+      // Populate categories from data
+      uniq(data.map(d=>d.category)).sort().forEach(c=>{
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c; sel.appendChild(opt);
+      });
 
       table = new Tabulator('#table', {
         data,
-        layout:"fitColumns",
-        height:"600px",
-        pagination:true,
-        paginationSize:25,
-        placeholder:"No resources found.",
+        layout: 'fitColumns',
+        height: '600px',
+        pagination: true,
+        paginationSize: 25,
+        placeholder: 'No resources found.',
         columns:[
-          {title:"Title", field:"title", headerFilter:true, formatter:function(cell){
+          {title:'Title', field:'title', headerFilter:true, formatter:function(cell){
             const row = cell.getRow().getData();
             const url = row.url || '#';
             return `<a href="${url}" target="_blank" rel="noopener" style="color:#a6b4ff; text-decoration:none; font-weight:600;">${cell.getValue()}</a>`;
           }},
-          {title:"Category", field:"category", headerFilter:true, width:140, headerSort:true},
-          {title:"Description", field:"description", headerFilter:true, formatter:function(cell){
+          {title:'Category', field:'category', headerFilter:true, width:140, headerSort:true},
+          {title:'Description', field:'description', headerFilter:true, formatter:function(cell){
             const v = cell.getValue() || ''; return v.length>160? v.slice(0,157)+'…' : v;
           }},
-          {title:"Tags", field:"tags", width:200, formatter:function(cell){
+          {title:'Tags', field:'tags', width:200, formatter:function(cell){
             const tags = cell.getValue() || []; return tags.map(t=>`<span class="badge">${t}</span>`).join(' ');
           }},
         ],
       });
 
-      const q = document.getElementById('q');
-      q.addEventListener('input', () => {
-        const term = q.value.trim();
-        if(!term){ table.clearFilter(true); applyCategoryFilter(); return; }
-        table.setFilter(function(data){
-          const hay = [data.title, data.description, (data.tags||[]).join(' '), data.category].join(' ').toLowerCase();
-          return hay.includes(term.toLowerCase());
-        });
-        applyCategoryFilter();
-      });
-
-      document.getElementById('categoryFilter').addEventListener('change', applyCategoryFilter);
-
-      function applyCategoryFilter(){
+      function applyFilters(){
+        const term = (q.value || '').trim().toLowerCase();
         const cat = sel.value;
-        table.addFilter(function(data){
-          return !cat || data.category === cat;
+        table.setFilter(function(row){
+          const hay = [row.title, row.description, (row.tags||[]).join(' '), row.category].join(' ').toLowerCase();
+          const matchQ = term ? hay.includes(term) : true;
+          const matchCat = cat ? row.category === cat : true;
+          return matchQ && matchCat;
         });
       }
+
+      q.addEventListener('input', applyFilters);
+      sel.addEventListener('change', applyFilters);
     }
 
     init();
