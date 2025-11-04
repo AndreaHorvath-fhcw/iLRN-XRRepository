@@ -1,0 +1,43 @@
+name: Add Resource
+description: Propose a new resource for the directory
+labels: ["new resource"]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: Title
+      placeholder: "Resource title"
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      placeholder: "https://…"
+    validations:
+      required: true
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category
+      options:
+        - Tutorial
+        - Documentation
+        - Tool
+        - Conference
+        - Paper
+        - Course
+        - Dataset
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: "One or two sentences"
+  - type: input
+    id: tags
+    attributes:
+      label: Tags (comma-separated)
+      placeholder: "webxr, unity, vr"

@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iLRN XR Repository</title>
+  <!-- Tabulator (sortable/filterable table) -->
+  <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet" />
+  <script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
+  <style>
+    :root { --bg:#0b1020; --card:#121935; --text:#e8ebff; --muted:#aeb7e6; }
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; background:var(--bg); color:var(--text);}
+    header{padding:28px 18px 8px;}
+    h1{margin:0 0 6px; font-size:24px;}
+    .sub{color:var(--muted); font-size:14px;}
+    .wrap{max-width:1100px; margin:0 auto; padding:0 16px 60px;}
+    .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:16px 0 12px;}
+    .toolbar input[type="search"]{flex:1 1 280px; padding:10px 12px; border-radius:12px; border:1px solid #2a3564; background:var(--card); color:var(--text);}
+    .toolbar select{padding:10px 12px; border-radius:12px; border:1px solid #2a3564; background:var(--card); color:var(--text);}
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:14px; border:1px solid #2a3564; background:linear-gradient(180deg,#1b2350,#152042); color:var(--text); text-decoration:none; font-weight:600;}
+    .btn svg{width:18px; height:18px;}
+    .card{background:var(--card); border:1px solid #263264; border-radius:18px; padding:14px;}
+    .tabulator{background:transparent; border:none;}
+    .tabulator .tabulator-header{background:transparent; border-bottom:1px solid #2a3564;}
+    .tabulator-row{background:transparent;}
+    .tabulator-row:hover{background:#0f1430;}
+    .badge{display:inline-block; padding:3px 8px; border-radius:999px; background:#263264;}
+    footer{color:var(--muted); font-size:12px; text-align:center; margin-top:24px;}
+    @media (max-width:700px){ .tabulator-col[tabulator-field="description"]{display:none;} }
+  </style>
+</head>
+<body>
+  <header class="wrap">
+    <h1>iLRN XR Repository</h1>
+    <div class="sub">Search, filter, and explore community-curated XR resources.</div>
+    <div class="toolbar">
+      <input id="q" type="search" placeholder="Search title, description, tags…" aria-label="Search" />
+      <select id="categoryFilter" aria-label="Filter by category">
+        <option value="">All categories</option>
+      </select>
+      <a id="addBtn" class="btn" target="_blank" rel="noopener" href="https://github.com/AndreaHorvath-fhcw/iLRN-XRRepository/issues/new?template=add-resource.yml">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        Add Resource
+      </a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="card">
+      <div id="table"></div>
+    </div>
+    <footer>Data loads from <code>data/resources.json</code>. Suggest an entry with the “Add Resource” button.</footer>
+  </main>
+
+  <script>
+    const DATA_URL = './data/resources.json';
+
+    function uniq(values){ return [...new Set(values.filter(Boolean))]; }
+
+    async function fetchData(){
+      try{
+        const res = await fetch(DATA_URL, {cache:'no-store'});
+        if(!res.ok) throw new Error('HTTP '+res.status);
+        const json = await res.json();
+        return Array.isArray(json) ? json : json.items || [];
+      }catch(err){
+        console.warn('Falling back to demo data:', err);
+        return [
+          {title:'Unity Learn', category:'Tutorial', description:'Official Unity tutorials for XR.', url:'https://learn.unity.com', tags:['unity','xr','tutorial']},
+          {title:'A-Frame Docs', category:'Documentation', description:'WebXR framework for VR on the web.', url:'https://aframe.io', tags:['webxr','vr','javascript']}
+        ];
+      }
+    }
+
+    let table;
+    async function init(){
+      const data = await fetchData();
+
+      const categories = uniq(data.map(d=>d.category)).sort();
+      const sel = document.getElementById('categoryFilter');
+      categories.forEach(c=>{ const opt = document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt); });
+
+      table = new Tabulator('#table', {
+        data,
+        layout:"fitColumns",
+        height:"600px",
+        pagination:true,
+        paginationSize:25,
+        placeholder:"No resources found.",
+        columns:[
+          {title:"Title", field:"title", headerFilter:true, formatter:function(cell){
+            const row = cell.getRow().getData();
+            const url = row.url || '#';
+            return `<a href="${url}" target="_blank" rel="noopener" style="color:#a6b4ff; text-decoration:none; font-weight:600;">${cell.getValue()}</a>`;
+          }},
+          {title:"Category", field:"category", headerFilter:true, width:140, headerSort:true},
+          {title:"Description", field:"description", headerFilter:true, formatter:function(cell){
+            const v = cell.getValue() || ''; return v.length>160? v.slice(0,157)+'…' : v;
+          }},
+          {title:"Tags", field:"tags", width:200, formatter:function(cell){
+            const tags = cell.getValue() || []; return tags.map(t=>`<span class="badge">${t}</span>`).join(' ');
+          }},
+        ],
+      });
+
+      const q = document.getElementById('q');
+      q.addEventListener('input', () => {
+        const term = q.value.trim();
+        if(!term){ table.clearFilter(true); applyCategoryFilter(); return; }
+        table.setFilter(function(data){
+          const hay = [data.title, data.description, (data.tags||[]).join(' '), data.category].join(' ').toLowerCase();
+          return hay.includes(term.toLowerCase());
+        });
+        applyCategoryFilter();
+      });
+
+      document.getElementById('categoryFilter').addEventListener('change', applyCategoryFilter);
+
+      function applyCategoryFilter(){
+        const cat = sel.value;
+        table.addFilter(function(data){
+          return !cat || data.category === cat;
+        });
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
