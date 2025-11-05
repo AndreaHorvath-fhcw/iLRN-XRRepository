@@ -76,100 +76,165 @@
     <footer>Data loads from <code>data/resources.json</code>. Use “Add Resource” to propose new entries.</footer>
   </main>
 
-  <script>
-    // Cache-bust to avoid stale JSON
-    const DATA_URL = './data/resources.json?t=' + Date.now();
+<script>
+  // Cache-bust to avoid stale JSON
+  const DATA_URL = './data/resources.json?t=' + Date.now();
 
-    async function fetchData(){
-      const res = await fetch(DATA_URL, { cache:'no-store' });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      const json = await res.json();
-      if(!Array.isArray(json)) return [];
-      // Normalize records so old entries still work
-      return json.map((r,i)=>({
-        id: r.id || i,
-        title: r.title || r["Resource Name"] || "Untitled",
-        description: r.description || r["Description"] || "",
-        category: r.category || r["Category"] || "",
-        target_age_group: r.target_age_group || r["Target Age Group"] || "",
-        resource_type: r.resource_type || r["Resource Type"] || "",
-        language: r.language || r["Language"] || "",
-        url: r.url || r["URL"] || "",
-        platform: r.platform || r["Platform"] || "",
-        publication_date: r.publication_date || r["Publication Date"] || ""
-      }));
-    }
+  // Normalize strings for reliable matching
+  const norm = s => String(s || '')
+    .toLowerCase()
+    .normalize('NFKD').replace(/[\u0300-\u036f]/g,'') // strip accents
+    .replace(/\s+/g,' ')
+    .trim();
 
-    // Load Tabulator with fallback to plain table if the CDN fails
-    function loadTabulator(){
-      return new Promise((resolve, reject)=>{
-        const s = document.createElement('script');
-        s.src = 'https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
-        s.onload = ()=> resolve();
-        s.onerror = ()=>{
-          const s2 = document.createElement('script');
-          s2.src = 'https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
-          s2.onload = ()=> resolve();
-          s2.onerror = ()=> reject();
-          document.head.appendChild(s2);
-        };
-        document.head.appendChild(s);
+  async function fetchData(){
+    const res = await fetch(DATA_URL, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    if(!Array.isArray(json)) return [];
+    // Normalize records so old entries still work
+    return json.map((r,i)=>({
+      id: r.id || i,
+      title: r.title || r["Resource Name"] || "Untitled",
+      description: r.description || r["Description"] || "",
+      category: r.category || r["Category"] || "",
+      target_age_group: r.target_age_group || r["Target Age Group"] || "",
+      resource_type: r.resource_type || r["Resource Type"] || "",
+      language: r.language || r["Language"] || "",
+      url: r.url || r["URL"] || "",
+      platform: r.platform || r["Platform"] || "",
+      publication_date: r.publication_date || r["Publication Date"] || ""
+    }));
+  }
+
+  // Load Tabulator JS with CDN fallback
+  function loadTabulator(){
+    return new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = 'https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
+      s.onload = resolve;
+      s.onerror = ()=>{
+        const s2 = document.createElement('script');
+        s2.src = 'https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
+        s2.onload = resolve;
+        s2.onerror = ()=> reject(new Error('Failed to load Tabulator'));
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  // Build a link to details page with an encoded slug
+  function toSlug(s){ return encodeURIComponent(norm(s).replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')); }
+
+  let table, DATA = [];
+
+  function wireFilters(){
+    const q = document.getElementById('q');
+    const typeFilter = document.getElementById('typeFilter');
+
+    function applyFilters(){
+      const term = norm(q.value);
+      const type = norm(typeFilter.value);
+
+      // Ensure we don't stack multiple filters
+      table.clearFilter(true);
+
+      // Single function filter combining both conditions
+      table.setFilter(function(row){
+        const title = norm(row.title);
+        const rtype = norm(row.resource_type);
+        const matchesTerm = term ? (title.includes(term) || rtype.includes(term)) : true;
+        const matchesType = type ? (rtype === type) : true;
+        return matchesTerm && matchesType;
       });
     }
 
-    // Build a link to details page with an encoded slug
-    function toSlug(s){ return encodeURIComponent(String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')); }
+    q.addEventListener('input', applyFilters);
+    q.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); applyFilters(); }});
+    typeFilter.addEventListener('change', applyFilters);
+  }
 
-    (async function init(){
-      const data = await fetchData();
+  (async function init(){
+    DATA = await fetchData();
 
-      try{
-        await loadTabulator();
-        const table = new Tabulator('#table', {
-          data,
-          layout: 'fitColumns',
-          height: '600px',
-          pagination: true,
-          paginationSize: 25,
-          placeholder: 'No resources found.',
-          columns:[
-            {title:'Resource Name', field:'title', headerFilter:true, formatter:function(cell){
+    try{
+      await loadTabulator();
+
+      table = new Tabulator('#table', {
+        data: DATA,
+        layout: 'fitColumns',
+        height: '600px',
+        pagination: true,
+        paginationSize: 25,
+        placeholder: 'No resources found.',
+        columns:[
+          {
+            title:'Resource Name',
+            field:'title',
+            headerFilter:true,
+            formatter:function(cell){
               const row = cell.getRow().getData();
               const slug = toSlug(row.title) || row.id;
               return `<a class="link" href="resource.html?id=${slug}">${cell.getValue()}</a>`;
-            }},
-            {title:'Resource Type', field:'resource_type', headerFilter:true, width:180}
-          ],
+            }
+          },
+          { title:'Resource Type', field:'resource_type', headerFilter:true, width:180 }
+        ],
+      });
+
+      wireFilters();
+
+    }catch{
+      // Plain table fallback (keeps search working)
+      const el = document.getElementById('table');
+      el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #dbe3f1">Resource Name</th>
+            <th style="text-align:left;padding:10px;border-bottom:1px solid #dbe3f1">Resource Type</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>`;
+
+      const tbody = document.getElementById('tbody');
+
+      const render = (rows)=> {
+        tbody.innerHTML = rows.map(r=>`
+          <tr>
+            <td style="padding:10px;border-bottom:1px solid #dbe3f1">
+              <a class="link" href="resource.html?id=${toSlug(r.title)||r.id}">${r.title}</a>
+            </td>
+            <td style="padding:10px;border-bottom:1px solid #dbe3f1">${r.resource_type||''}</td>
+          </tr>`).join('');
+      };
+
+      // initial render
+      render(DATA);
+
+      // simple filter wiring for fallback
+      const q = document.getElementById('q');
+      const typeFilter = document.getElementById('typeFilter');
+
+      function apply(){
+        const term = norm(q.value);
+        const type = norm(typeFilter.value);
+        const filtered = DATA.filter(r=>{
+          const title = norm(r.title);
+          const rtype = norm(r.resource_type);
+          const okTerm = term ? (title.includes(term) || rtype.includes(term)) : true;
+          const okType = type ? (rtype === type) : true;
+          return okTerm && okType;
         });
-
-        // filters
-        const q = document.getElementById('q');
-        const typeFilter = document.getElementById('typeFilter');
-        function applyFilters(){
-          const term = (q.value||'').trim().toLowerCase();
-          const type = typeFilter.value;
-          table.setFilter(function(row){
-            const hay = [row.title, row.resource_type].join(' ').toLowerCase();
-            const okQ = term ? hay.includes(term) : true;
-            const okT = type ? (row.resource_type||'') === type : true;
-            return okQ && okT;
-          });
-        }
-        q.addEventListener('input', applyFilters);
-        typeFilter.addEventListener('change', applyFilters);
-
-      }catch{
-        // Plain table fallback (minimal)
-        const el = document.getElementById('table');
-        el.innerHTML = `<table style="width:100%;border-collapse:collapse">
-          <thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid var(--border)">Resource Name</th>
-          <th style="text-align:left;padding:10px;border-bottom:1px solid var(--border)">Resource Type</th></tr></thead>
-          <tbody>${data.map(r=>`<tr>
-            <td style="padding:10px;border-bottom:1px solid var(--border)"><a class="link" href="resource.html?id=${toSlug(r.title)||r.id}">${r.title}</a></td>
-            <td style="padding:10px;border-bottom:1px solid var(--border)">${r.resource_type||''}</td>
-          </tr>`).join('')}</tbody></table>`;
+        render(filtered);
       }
-    })();
-  </script>
+
+      q.addEventListener('input', apply);
+      q.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); apply(); }});
+      typeFilter.addEventListener('change', apply);
+    }
+  })();
+</script>
 </body>
 </html>
