@@ -1,20 +1,3 @@
-name: Add Resource PR
-on:
-  issues:
-    types: [opened, edited]
-
-permissions:
-  contents: write
-  pull-requests: write
-  issues: read
-
-jobs:
-  build-pr:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
       - name: Parse issue and update JSON
         id: parse
         uses: actions/github-script@v7
@@ -22,87 +5,106 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
+
             const body = context.payload.issue.body || '';
             const issueTitle = context.payload.issue.title || '';
 
-            // --- Flexible field extractor for Issue Forms ---
-            // Matches "### Label" (case-insensitive), tolerates extra spaces and CRLFs.
-            function getField(label) {
-              const re = new RegExp(String.raw`^\\s*###\\s*${label}\\s*\\r?\\n+([\\s\\S]*?)(?=\\r?\\n\\s*###\\s|$)`, 'im');
-              const m = body.match(re);
-              if (!m) return '';
-              return m[1].trim();
+            // --- Parse all ### blocks into a map ---
+            // Captures: heading text (group 1) + content until next heading (group 2)
+            const blockRe = /^\\s*###\\s*(.+?)\\s*$\\r?\\n+([\\s\\S]*?)(?=^\\s*###\\s|$)/gim;
+            const blocks = {};
+            function normLabel(s){
+              return String(s || '')
+                .toLowerCase()
+                .normalize('NFKD')
+                .replace(/[\\u0300-\\u036f]/g, '')  // strip diacritics
+                .replace(/[^a-z0-9]+/g,' ')         // non-alnum -> space
+                .trim()
+                .replace(/\\s+/g,' ');              // collapse spaces
+            }
+            let m;
+            while ((m = blockRe.exec(body)) !== null) {
+              const label = normLabel(m[1]);
+              const value = (m[2] || '').trim();
+              blocks[label] = value;
             }
 
-            function clean(v) {
-              if (!v) return '';
-              return v
-                .replace(/^`+|`+$/g, '')         // strip backticks around code
-                .replace(/^"+|"+$/g, '')         // strip quotes
-                .replace(/\r/g, '')
+            // helper to get a field by any of a set of label variants
+            function getAny(labels){
+              for (const lab of labels){
+                const v = blocks[normLabel(lab)];
+                if (v) return v.trim();
+              }
+              return '';
+            }
+
+            function clean(v){
+              return (v || '')
+                .replace(/^`+|`+$/g, '')
+                .replace(/^"+|"+$/g, '')
+                .replace(/\\r/g,'')
                 .trim();
             }
 
-            // Try to find a URL anywhere if the field isn't present
-            function firstUrlFallback() {
-              const urlRe = /(https?:\/\/[^\s)]+)/i;
-              const m = body.match(urlRe);
-              return m ? m[1].trim() : '';
+            function firstUrlFallback(s){
+              const re = /(https?:\\/\\/[^\\s)]+)/i;
+              const mm = (s || body).match(re);
+              return mm ? mm[1].trim() : '';
             }
 
-            let rec = {
-              title: clean(getField('Resource Name')) || clean(issueTitle),
-              description: clean(getField('Description')),
-              category: clean(getField('Category')),
-              target_age_group: clean(getField('Target Age Group')),
-              resource_type: clean(getField('Resource Type')),
-              language: clean(getField('Language')),
-              url: clean(getField('URL')) || firstUrlFallback(),
-              platform: clean(getField('Platform')),
-              publication_date: clean(getField('Publication Date')),
+            const rec = {
+              title: clean(getAny(['Resource Name','Title'])) || clean(issueTitle),
+              description: clean(getAny(['Description'])),
+              category: clean(getAny(['Category'])),
+              target_age_group: clean(getAny(['Target Age Group'])),
+              resource_type: clean(getAny(['Resource Type'])),
+              language: clean(getAny(['Language'])),
+              url: clean(getAny(['URL'])) || firstUrlFallback(body),
+              platform: clean(getAny(['Platform'])),
+              publication_date: clean(getAny(['Publication Date']))
             };
 
-            // Normalize platform: allow comma/newline separated or multi-select text
+            // Normalize platform -> array if comma/newline separated
             if (rec.platform) {
               const parts = rec.platform.split(/,|\\n/).map(s=>s.trim()).filter(Boolean);
               rec.platform = parts.length > 1 ? parts : parts[0];
             }
 
-            // Validate required fields with clear logging
-            let missing = [];
+            // Publication date: accept YYYY or YYYY-MM-DD, keep raw otherwise
+            if (/^\\d{4}$/.test(rec.publication_date)) {
+              rec.publication_date = rec.publication_date + '-01-01';
+            } else if (rec.publication_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(rec.publication_date)) {
+              core.warning('Publication Date not ISO (YYYY or YYYY-MM-DD). Keeping raw: ' + rec.publication_date);
+            }
+
+            // Validate required with resilient fallbacks
+            const missing = [];
             if (!rec.title) missing.push('Resource Name (or Issue Title)');
             if (!rec.url) missing.push('URL');
             if (!rec.resource_type) missing.push('Resource Type');
 
             if (missing.length) {
-              core.error('Issue body received:\n' + body);
+              core.error('Normalized blocks: ' + JSON.stringify(blocks, null, 2));
               core.setFailed('Missing required fields: ' + missing.join(', ') + '.');
               return;
             }
 
-            // Basic URL sanity
-            try { new URL(rec.url); } catch (e) {
+            try { new URL(rec.url); } catch {
               core.error('Parsed URL was: ' + rec.url);
               core.setFailed('Invalid URL.');
               return;
             }
 
-            // Warn if date not ISO (allow empty)
-            if (rec.publication_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(rec.publication_date)) {
-              core.warning('Publication Date is not YYYY-MM-DD; keeping raw value: ' + rec.publication_date);
-            }
-
             const dataPath = path.join(process.env.GITHUB_WORKSPACE, 'data', 'resources.json');
             fs.mkdirSync(path.dirname(dataPath), { recursive: true });
-
             let items = [];
             if (fs.existsSync(dataPath)) {
               try { items = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]'); }
               catch(e) { core.warning('resources.json not parseable; starting fresh.'); items = []; }
             }
 
-            // Prevent duplicate by URL
-            if (items.some(it => String((it.url||'')).toLowerCase() === rec.url.toLowerCase())) {
+            // Prevent dupes by URL (case-insensitive)
+            if (items.some(it => String(it.url || '').toLowerCase() === rec.url.toLowerCase())) {
               core.warning('Duplicate URL detected; skipping append.');
               core.setOutput('skipped', 'true');
               return;
@@ -114,16 +116,3 @@ jobs:
 
             const slug = String(rec.title).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
             core.setOutput('branch', `add-resource-${slug}`);
-
-      - name: Create Pull Request
-        if: steps.parse.outputs.skipped != 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          # If your org blocks PRs from GITHUB_TOKEN, add: token: ${{ secrets.PAT_PR }}
-          branch: ${{ steps.parse.outputs.branch }}
-          commit-message: "Add resource from issue #${{ github.event.issue.number }}"
-          title: "Add resource: ${{ github.event.issue.title || 'New resource' }}"
-          body: "Auto-generated from issue #${{ github.event.issue.number }}."
-          labels: data
-          add-paths: |
-            data/resources.json
