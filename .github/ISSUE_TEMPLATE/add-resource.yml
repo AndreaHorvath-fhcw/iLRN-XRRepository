@@ -5,39 +5,60 @@ body:
   - type: input
     id: title
     attributes:
-      label: Title
+      label: Resource Name
       placeholder: "Resource title"
-    validations:
-      required: true
-  - type: input
-    id: url
-    attributes:
-      label: URL
-      placeholder: "https://…"
-    validations:
-      required: true
-  - type: dropdown
-    id: category
-    attributes:
-      label: Category
-      options:
-        - Tutorial
-        - Documentation
-        - Tool
-        - Conference
-        - Paper
-        - Course
-        - Dataset
-        - Other
-    validations:
-      required: true
+    validations: { required: true }
+
   - type: textarea
     id: description
     attributes:
       label: Description
       placeholder: "One or two sentences"
+
   - type: input
-    id: tags
+    id: category
     attributes:
-      label: Tags (comma-separated)
-      placeholder: "webxr, unity, vr"
+      label: Category
+      placeholder: "e.g., Documentation, Tutorial, Research, ..."
+    validations: { required: false }
+
+  - type: dropdown
+    id: target_age_group
+    attributes:
+      label: Target Age Group
+      options: ["<10","10 – 14","14 – 18","18+"]
+    validations: { required: false }
+
+  - type: dropdown
+    id: resource_type
+    attributes:
+      label: Resource Type
+      options: ["publication","application","tool","other"]
+    validations: { required: true }
+
+  - type: input
+    id: language
+    attributes:
+      label: Language
+      placeholder: "e.g., English, German"
+
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      placeholder: "https://…"
+    validations: { required: true }
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options: ["Web","Meta","Steam","Android","iOS","PICO","other"]
+
+  - type: input
+    id: publication_date
+    attributes:
+      label: Publication Date
+      description: "YYYY-MM-DD"
+      placeholder: "2025-11-05"

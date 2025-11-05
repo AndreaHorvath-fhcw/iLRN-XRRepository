@@ -24,68 +24,75 @@ jobs:
             const path = require('path');
             const body = context.payload.issue.body || '';
 
-            // Issue Forms render fields as "### Field Label" followed by the value
+            // Extract Issue Forms as "### Label" blocks
             function getField(label) {
-              const re = new RegExp(String.raw`^###\s*${label}\s*\n+([\s\S]*?)(?=\n^###\s|$)`, 'im');
+              const re = new RegExp(String.raw`^###\\s*${label}\\s*\\n+([\\s\\S]*?)(?=\\n^###\\s|$)`, 'im');
               const m = body.match(re);
               return m ? m[1].trim() : '';
             }
 
-            const title = getField('Title');
-            const url = getField('URL');
-            const category = getField('Category');
-            const description = getField('Description');
-            const tagsLine = getField('Tags \(comma-separated\)|Tags');
-            const tags = tagsLine ? tagsLine.split(',').map(s=>s.trim()).filter(Boolean) : [];
+            const rec = {
+              title: getField('Resource Name'),
+              description: getField('Description'),
+              category: getField('Category'),
+              target_age_group: getField('Target Age Group'),
+              resource_type: getField('Resource Type'),
+              language: getField('Language'),
+              url: getField('URL'),
+              platform: getField('Platform'),
+              publication_date: getField('Publication Date')
+            };
 
-            // Only proceed if it looks like the Add Resource form
-            const looksLikeForm = !!(title || url || category);
-            if (!looksLikeForm) {
-              core.info('Issue does not look like an Add Resource form; exiting.');
-              core.setOutput('skipped', 'true');
+            if (!rec.title || !rec.url || !rec.resource_type) {
+              core.setFailed('Missing required fields (Resource Name, URL, Resource Type).');
               return;
             }
 
-            if (!title || !url || !category) {
-              core.setFailed('Missing required fields (title, url, category).');
-              return;
+            // validate URL
+            try { new URL(rec.url); } catch (e) { core.setFailed('Invalid URL.'); return; }
+
+            // normalize platform to array if multiple selected (forms may separate by commas or newlines)
+            if (rec.platform) {
+              const parts = rec.platform.split(/,|\\n/).map(s=>s.trim()).filter(Boolean);
+              rec.platform = parts.length > 1 ? parts : parts[0];
             }
 
-            try { new URL(url); } catch (e) { core.setFailed('Invalid URL.'); return; }
+            // basic ISO date check (allow empty)
+            if (rec.publication_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(rec.publication_date)) {
+              core.warning('Publication Date is not YYYY-MM-DD; keeping raw value.');
+            }
 
             const dataPath = path.join(process.env.GITHUB_WORKSPACE, 'data', 'resources.json');
+            fs.mkdirSync(path.dirname(dataPath), { recursive: true });
             let items = [];
             if (fs.existsSync(dataPath)) {
-              items = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]');
-            } else {
-              // ensure directory exists
-              fs.mkdirSync(path.dirname(dataPath), { recursive: true });
+              try { items = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]'); } catch(e) { items = []; }
             }
 
-            if (items.some(it => (it.url || '').toLowerCase() === url.toLowerCase())) {
+            // prevent duplicates by URL
+            if (items.some(it => String((it.url||'')).toLowerCase() === rec.url.toLowerCase())) {
               core.warning('Duplicate URL detected; skipping append.');
               core.setOutput('skipped', 'true');
               return;
             }
 
-            items.push({ title, url, category, description, tags });
-            items.sort((a,b)=>a.title.localeCompare(b.title));
-            fs.writeFileSync(dataPath, JSON.stringify(items, null, 2)+'\n');
+            items.push(rec);
+            // sort by Resource Name (title)
+            items.sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
+            fs.writeFileSync(dataPath, JSON.stringify(items, null, 2) + '\\n');
 
-            // Create a branch name
-            const slug = title.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+            const slug = String(rec.title).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
             core.setOutput('branch', `add-resource-${slug}`);
 
       - name: Create Pull Request
         if: steps.parse.outputs.skipped != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
+          # If your org blocks PRs by GITHUB_TOKEN, use: token: ${{ secrets.PAT_PR }}
           branch: ${{ steps.parse.outputs.branch }}
           commit-message: "Add resource from issue #${{ github.event.issue.number }}"
           title: "Add resource: ${{ github.event.issue.title || 'New resource' }}"
-          body: |
-            This PR was auto-generated from issue #${{ github.event.issue.number }} by @${{ github.actor }}.
-          labels: |
-            data
+          body: "Auto-generated from issue #${{ github.event.issue.number }}."
+          labels: data
           add-paths: |
             data/resources.json

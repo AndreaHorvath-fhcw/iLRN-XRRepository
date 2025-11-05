@@ -4,38 +4,65 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>iLRN XR Repository</title>
+
+  <!-- Tabulator (sortable/filterable table) -->
   <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet" />
+
   <style>
-    :root { --bg:#0b1020; --card:#121935; --text:#e8ebff; --muted:#aeb7e6; }
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; background:var(--bg); color:var(--text);}
-    header{padding:28px 18px 8px;}
-    h1{margin:0 0 6px; font-size:24px;}
+    /* --- iLRN-inspired light theme --- */
+    :root{
+      --bg:#ffffff;
+      --text:#0b1a33;           /* deep slate */
+      --muted:#5d6c84;          /* muted slate */
+      --primary:#1f4aa8;        /* rich iLRN-ish blue */
+      --primary-600:#163a86;
+      --ring:#d7e2ff;           /* soft blue tint */
+      --card:#f7f9fc;           /* very light card bg */
+      --border:#dbe3f1;
+      --link:#1f4aa8;
+      --link-hover:#0f3090;
+      --chip:#e9efff;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; margin:0; background:var(--bg); color:var(--text);}
+    header{padding:28px 18px 8px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,#fff, #f8fbff);}
+    h1{margin:0 0 6px; font-size:24px; color:var(--primary);}
     .sub{color:var(--muted); font-size:14px;}
     .wrap{max-width:1100px; margin:0 auto; padding:0 16px 60px;}
     .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:16px 0 12px;}
-    .toolbar input[type="search"]{flex:1 1 280px; padding:10px 12px; border-radius:12px; border:1px solid #2a3564; background:var(--card); color:var(--text);}
-    .toolbar select{padding:10px 12px; border-radius:12px; border:1px solid #2a3564; background:var(--card); color:var(--text);}
-    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:14px; border:1px solid #2a3564; background:linear-gradient(180deg,#1b2350,#152042); color:var(--text); text-decoration:none; font-weight:600;}
+    .toolbar input[type="search"], .toolbar select{
+      padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:#fff; color:var(--text);
+      outline: none; box-shadow: 0 0 0 3px transparent;
+    }
+    .toolbar input[type="search"]:focus, .toolbar select:focus{ box-shadow:0 0 0 4px var(--ring); }
+    .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:14px; border:1px solid var(--border);
+      background:#fff; color:var(--primary); text-decoration:none; font-weight:600;}
+    .btn:hover{background:#f3f7ff; border-color:#cbd7f3;}
     .btn svg{width:18px; height:18px;}
-    .card{background:var(--card); border:1px solid #263264; border-radius:18px; padding:14px;}
-    .badge{display:inline-block; padding:3px 8px; border-radius:999px; background:#263264;}
+    .card{background:#fff; border:1px solid var(--border); border-radius:14px; padding:14px;}
+    .tabulator{background:transparent; border:none;}
+    .tabulator .tabulator-header{background:transparent; border-bottom:1px solid var(--border);}
+    .tabulator-row{background:transparent;}
+    .tabulator-row:hover{background:var(--card);}
+    a.link{color:var(--link); text-decoration:none; font-weight:600;}
+    a.link:hover{color:var(--link-hover); text-decoration:underline;}
     footer{color:var(--muted); font-size:12px; text-align:center; margin-top:24px;}
-    table{width:100%; border-collapse:collapse;}
-    th,td{border-bottom:1px solid #2a3564; padding:10px; vertical-align:top;}
-    a.link{color:#a6b4ff; text-decoration:none; font-weight:600;}
-    @media (max-width:700px){ .col-desc{display:none;} }
   </style>
 </head>
 <body>
   <header class="wrap">
     <h1>iLRN XR Repository</h1>
-    <div class="sub">Search, filter, and explore community-curated XR resources.</div>
+    <div class="sub">Search and explore community-curated XR resources.</div>
     <div class="toolbar">
-      <input id="q" type="search" placeholder="Search title, description, tags…" aria-label="Search" />
-      <select id="categoryFilter" aria-label="Filter by category">
-        <option value="">All categories</option>
+      <input id="q" type="search" placeholder="Search by name or type…" aria-label="Search" />
+      <select id="typeFilter" aria-label="Filter by resource type">
+        <option value="">All resource types</option>
+        <option>publication</option>
+        <option>application</option>
+        <option>tool</option>
+        <option>other</option>
       </select>
-      <a id="addBtn" class="btn" target="_blank" rel="noopener" href="https://github.com/AndreaHorvath-fhcw/iLRN-XRRepository/issues/new?template=add-resource.yml">
+      <a class="btn" target="_blank" rel="noopener" href="https://github.com/AndreaHorvath-fhcw/iLRN-XRRepository/issues/new?template=add-resource.yml">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         Add Resource
       </a>
@@ -46,143 +73,101 @@
     <div class="card">
       <div id="table"></div>
     </div>
-    <footer>Data loads from <code>data/resources.json</code>. Suggest an entry with the “Add Resource” button.</footer>
+    <footer>Data loads from <code>data/resources.json</code>. Use “Add Resource” to propose new entries.</footer>
   </main>
 
   <script>
-    // ---- Settings ----
+    // Cache-bust to avoid stale JSON
     const DATA_URL = './data/resources.json?t=' + Date.now();
 
-    // ---- Load JSON ----
-    async function getData(){
-      const res = await fetch(DATA_URL, { cache: 'no-store' });
+    async function fetchData(){
+      const res = await fetch(DATA_URL, { cache:'no-store' });
       if(!res.ok) throw new Error('HTTP '+res.status);
       const json = await res.json();
-      if(!Array.isArray(json)) throw new Error('resources.json must be an array');
-      return json;
+      if(!Array.isArray(json)) return [];
+      // Normalize records so old entries still work
+      return json.map((r,i)=>({
+        id: r.id || i,
+        title: r.title || r["Resource Name"] || "Untitled",
+        description: r.description || r["Description"] || "",
+        category: r.category || r["Category"] || "",
+        target_age_group: r.target_age_group || r["Target Age Group"] || "",
+        resource_type: r.resource_type || r["Resource Type"] || "",
+        language: r.language || r["Language"] || "",
+        url: r.url || r["URL"] || "",
+        platform: r.platform || r["Platform"] || "",
+        publication_date: r.publication_date || r["Publication Date"] || ""
+      }));
     }
 
-    // ---- Fallback plain table (no Tabulator) ----
-    function renderPlainTable(data){
-      // Populate category options
-      const sel = document.getElementById('categoryFilter');
-      [...new Set(data.map(d=>d.category).filter(Boolean))].sort().forEach(c=>{
-        const opt = document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt);
-      });
-
-      const el = document.getElementById('table');
-      el.innerHTML = `
-        <table>
-          <thead><tr>
-            <th>Title</th><th>Category</th><th class="col-desc">Description</th><th>Tags</th>
-          </tr></thead>
-          <tbody></tbody>
-        </table>`;
-      const tbody = el.querySelector('tbody');
-
-      function rowHTML(r){
-        const tags = (r.tags||[]).map(t=>`<span class="badge">${t}</span>`).join(' ');
-        return `<tr>
-          <td><a class="link" href="${r.url||'#'}" target="_blank" rel="noopener">${r.title||''}</a></td>
-          <td>${r.category||''}</td>
-          <td class="col-desc">${(r.description||'').slice(0,160)}${(r.description||'').length>160?'…':''}</td>
-          <td>${tags}</td>
-        </tr>`;
-      }
-
-      function applyFilters(){
-        const term = (document.getElementById('q').value||'').toLowerCase().trim();
-        const cat = sel.value;
-        const filtered = data.filter(d=>{
-          const hay = [d.title,d.description,(d.tags||[]).join(' '),d.category].join(' ').toLowerCase();
-          const okQ = term ? hay.includes(term) : true;
-          const okC = cat ? d.category===cat : true;
-          return okQ && okC;
-        });
-        tbody.innerHTML = filtered.map(rowHTML).join('');
-      }
-
-      document.getElementById('q').addEventListener('input', applyFilters);
-      sel.addEventListener('change', applyFilters);
-      applyFilters();
-    }
-
-    // ---- Tabulator renderer ----
-    function renderTabulator(data){
-      const sel = document.getElementById('categoryFilter');
-      [...new Set(data.map(d=>d.category).filter(Boolean))].sort().forEach(c=>{
-        const opt = document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt);
-      });
-
-      const table = new Tabulator('#table', {
-        data,
-        layout: 'fitColumns',
-        height: '600px',
-        pagination: true,
-        paginationSize: 25,
-        placeholder: 'No resources found.',
-        columns:[
-          {title:'Title', field:'title', headerFilter:true, formatter:function(cell){
-            const row = cell.getRow().getData();
-            const url = row.url || '#';
-            return `<a href="${url}" target="_blank" rel="noopener" class="link">${cell.getValue()}</a>`;
-          }},
-          {title:'Category', field:'category', headerFilter:true, width:140, headerSort:true},
-          {title:'Description', field:'description', headerFilter:true, formatter:function(cell){
-            const v = cell.getValue() || ''; return v.length>160? v.slice(0,157)+'…' : v;
-          }},
-          {title:'Tags', field:'tags', width:200, formatter:function(cell){
-            const tags = cell.getValue() || []; return tags.map(t=>`<span class="badge">${t}</span>`).join(' ');
-          }},
-        ],
-      });
-
-      function applyFilters(){
-        const term = (document.getElementById('q').value||'').trim().toLowerCase();
-        const cat = sel.value;
-        table.setFilter(function(row){
-          const hay = [row.title, row.description, (row.tags||[]).join(' '), row.category].join(' ').toLowerCase();
-          const matchQ = term ? hay.includes(term) : true;
-          const matchCat = cat ? row.category === cat : true;
-          return matchQ && matchCat;
-        });
-      }
-
-      document.getElementById('q').addEventListener('input', applyFilters);
-      sel.addEventListener('change', applyFilters);
-    }
-
-    // ---- Load Tabulator w/ fallback ----
+    // Load Tabulator with fallback to plain table if the CDN fails
     function loadTabulator(){
       return new Promise((resolve, reject)=>{
         const s = document.createElement('script');
         s.src = 'https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
-        s.onload = ()=> resolve('unpkg');
+        s.onload = ()=> resolve();
         s.onerror = ()=>{
           const s2 = document.createElement('script');
           s2.src = 'https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
-          s2.onload = ()=> resolve('jsdelivr');
-          s2.onerror = ()=> reject(new Error('Failed to load Tabulator from both CDNs'));
+          s2.onload = ()=> resolve();
+          s2.onerror = ()=> reject();
           document.head.appendChild(s2);
         };
         document.head.appendChild(s);
       });
     }
 
-    // ---- Boot ----
-    (async function(){
+    // Build a link to details page with an encoded slug
+    function toSlug(s){ return encodeURIComponent(String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')); }
+
+    (async function init(){
+      const data = await fetchData();
+
       try{
-        const data = await getData();
-        try{
-          await loadTabulator();
-          renderTabulator(data);
-        }catch(e){
-          console.warn(e.message + ' — rendering plain table instead.');
-          renderPlainTable(data);
+        await loadTabulator();
+        const table = new Tabulator('#table', {
+          data,
+          layout: 'fitColumns',
+          height: '600px',
+          pagination: true,
+          paginationSize: 25,
+          placeholder: 'No resources found.',
+          columns:[
+            {title:'Resource Name', field:'title', headerFilter:true, formatter:function(cell){
+              const row = cell.getRow().getData();
+              const slug = toSlug(row.title) || row.id;
+              return `<a class="link" href="resource.html?id=${slug}">${cell.getValue()}</a>`;
+            }},
+            {title:'Resource Type', field:'resource_type', headerFilter:true, width:180}
+          ],
+        });
+
+        // filters
+        const q = document.getElementById('q');
+        const typeFilter = document.getElementById('typeFilter');
+        function applyFilters(){
+          const term = (q.value||'').trim().toLowerCase();
+          const type = typeFilter.value;
+          table.setFilter(function(row){
+            const hay = [row.title, row.resource_type].join(' ').toLowerCase();
+            const okQ = term ? hay.includes(term) : true;
+            const okT = type ? (row.resource_type||'') === type : true;
+            return okQ && okT;
+          });
         }
-      }catch(err){
-        console.error('Data load error:', err);
-        document.getElementById('table').innerHTML = '<div style="color:#f8d7da">Failed to load data. See console.</div>';
+        q.addEventListener('input', applyFilters);
+        typeFilter.addEventListener('change', applyFilters);
+
+      }catch{
+        // Plain table fallback (minimal)
+        const el = document.getElementById('table');
+        el.innerHTML = `<table style="width:100%;border-collapse:collapse">
+          <thead><tr><th style="text-align:left;padding:10px;border-bottom:1px solid var(--border)">Resource Name</th>
+          <th style="text-align:left;padding:10px;border-bottom:1px solid var(--border)">Resource Type</th></tr></thead>
+          <tbody>${data.map(r=>`<tr>
+            <td style="padding:10px;border-bottom:1px solid var(--border)"><a class="link" href="resource.html?id=${toSlug(r.title)||r.id}">${r.title}</a></td>
+            <td style="padding:10px;border-bottom:1px solid var(--border)">${r.resource_type||''}</td>
+          </tr>`).join('')}</tbody></table>`;
       }
     })();
   </script>
