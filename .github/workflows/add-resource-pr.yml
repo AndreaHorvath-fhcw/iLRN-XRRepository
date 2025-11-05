@@ -1,3 +1,20 @@
+name: Add Resource PR
+on:
+  issues:
+    types: [opened, edited]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+
+jobs:
+  build-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Parse issue and update JSON
         id: parse
         uses: actions/github-script@v7
@@ -9,18 +26,17 @@
             const body = context.payload.issue.body || '';
             const issueTitle = context.payload.issue.title || '';
 
-            // --- Parse all ### blocks into a map ---
-            // Captures: heading text (group 1) + content until next heading (group 2)
-            const blockRe = /^\\s*###\\s*(.+?)\\s*$\\r?\\n+([\\s\\S]*?)(?=^\\s*###\\s|$)/gim;
+            // --- Parse all ### blocks into a map (robust to spacing/diacritics) ---
+            const blockRe = /^\s*###\s*(.+?)\s*$\r?\n+([\s\S]*?)(?=^\s*###\s|$)/gim;
             const blocks = {};
             function normLabel(s){
               return String(s || '')
                 .toLowerCase()
                 .normalize('NFKD')
-                .replace(/[\\u0300-\\u036f]/g, '')  // strip diacritics
-                .replace(/[^a-z0-9]+/g,' ')         // non-alnum -> space
+                .replace(/[\u0300-\u036f]/g, '')  // strip diacritics
+                .replace(/[^a-z0-9]+/g,' ')
                 .trim()
-                .replace(/\\s+/g,' ');              // collapse spaces
+                .replace(/\s+/g,' ');
             }
             let m;
             while ((m = blockRe.exec(body)) !== null) {
@@ -29,7 +45,6 @@
               blocks[label] = value;
             }
 
-            // helper to get a field by any of a set of label variants
             function getAny(labels){
               for (const lab of labels){
                 const v = blocks[normLabel(lab)];
@@ -42,12 +57,12 @@
               return (v || '')
                 .replace(/^`+|`+$/g, '')
                 .replace(/^"+|"+$/g, '')
-                .replace(/\\r/g,'')
+                .replace(/\r/g,'')
                 .trim();
             }
 
             function firstUrlFallback(s){
-              const re = /(https?:\\/\\/[^\\s)]+)/i;
+              const re = /(https?:\/\/[^\s)]+)/i;
               const mm = (s || body).match(re);
               return mm ? mm[1].trim() : '';
             }
@@ -64,20 +79,20 @@
               publication_date: clean(getAny(['Publication Date']))
             };
 
-            // Normalize platform -> array if comma/newline separated
+            // Normalize platform to array when multiple are provided
             if (rec.platform) {
-              const parts = rec.platform.split(/,|\\n/).map(s=>s.trim()).filter(Boolean);
+              const parts = rec.platform.split(/,|\n/).map(s=>s.trim()).filter(Boolean);
               rec.platform = parts.length > 1 ? parts : parts[0];
             }
 
-            // Publication date: accept YYYY or YYYY-MM-DD, keep raw otherwise
-            if (/^\\d{4}$/.test(rec.publication_date)) {
+            // Accept YYYY or YYYY-MM-DD
+            if (/^\d{4}$/.test(rec.publication_date)) {
               rec.publication_date = rec.publication_date + '-01-01';
-            } else if (rec.publication_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(rec.publication_date)) {
+            } else if (rec.publication_date && !/^\d{4}-\d{2}-\d{2}$/.test(rec.publication_date)) {
               core.warning('Publication Date not ISO (YYYY or YYYY-MM-DD). Keeping raw: ' + rec.publication_date);
             }
 
-            // Validate required with resilient fallbacks
+            // Validate required fields
             const missing = [];
             if (!rec.title) missing.push('Resource Name (or Issue Title)');
             if (!rec.url) missing.push('URL');
@@ -89,6 +104,7 @@
               return;
             }
 
+            // URL sanity
             try { new URL(rec.url); } catch {
               core.error('Parsed URL was: ' + rec.url);
               core.setFailed('Invalid URL.');
@@ -112,7 +128,20 @@
 
             items.push(rec);
             items.sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
-            fs.writeFileSync(dataPath, JSON.stringify(items, null, 2) + '\\n');
+            fs.writeFileSync(dataPath, JSON.stringify(items, null, 2) + '\n');
 
             const slug = String(rec.title).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
             core.setOutput('branch', `add-resource-${slug}`);
+
+      - name: Create Pull Request
+        if: steps.parse.outputs.skipped != 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          # If your org blocks PRs from GITHUB_TOKEN, add: token: ${{ secrets.PAT_PR }}
+          branch: ${{ steps.parse.outputs.branch }}
+          commit-message: "Add resource from issue #${{ github.event.issue.number }}"
+          title: "Add resource: ${{ github.event.issue.title || 'New resource' }}"
+          body: "Auto-generated from issue #${{ github.event.issue.number }}."
+          labels: data
+          add-paths: |
+            data/resources.json
