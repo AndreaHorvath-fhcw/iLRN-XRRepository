@@ -23,53 +23,85 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             const body = context.payload.issue.body || '';
+            const issueTitle = context.payload.issue.title || '';
 
-            // Extract Issue Forms as "### Label" blocks
+            // --- Flexible field extractor for Issue Forms ---
+            // Matches "### Label" (case-insensitive), tolerates extra spaces and CRLFs.
             function getField(label) {
-              const re = new RegExp(String.raw`^###\\s*${label}\\s*\\n+([\\s\\S]*?)(?=\\n^###\\s|$)`, 'im');
+              const re = new RegExp(String.raw`^\\s*###\\s*${label}\\s*\\r?\\n+([\\s\\S]*?)(?=\\r?\\n\\s*###\\s|$)`, 'im');
               const m = body.match(re);
+              if (!m) return '';
+              return m[1].trim();
+            }
+
+            function clean(v) {
+              if (!v) return '';
+              return v
+                .replace(/^`+|`+$/g, '')         // strip backticks around code
+                .replace(/^"+|"+$/g, '')         // strip quotes
+                .replace(/\r/g, '')
+                .trim();
+            }
+
+            // Try to find a URL anywhere if the field isn't present
+            function firstUrlFallback() {
+              const urlRe = /(https?:\/\/[^\s)]+)/i;
+              const m = body.match(urlRe);
               return m ? m[1].trim() : '';
             }
 
-            const rec = {
-              title: getField('Resource Name'),
-              description: getField('Description'),
-              category: getField('Category'),
-              target_age_group: getField('Target Age Group'),
-              resource_type: getField('Resource Type'),
-              language: getField('Language'),
-              url: getField('URL'),
-              platform: getField('Platform'),
-              publication_date: getField('Publication Date')
+            let rec = {
+              title: clean(getField('Resource Name')) || clean(issueTitle),
+              description: clean(getField('Description')),
+              category: clean(getField('Category')),
+              target_age_group: clean(getField('Target Age Group')),
+              resource_type: clean(getField('Resource Type')),
+              language: clean(getField('Language')),
+              url: clean(getField('URL')) || firstUrlFallback(),
+              platform: clean(getField('Platform')),
+              publication_date: clean(getField('Publication Date')),
             };
 
-            if (!rec.title || !rec.url || !rec.resource_type) {
-              core.setFailed('Missing required fields (Resource Name, URL, Resource Type).');
-              return;
-            }
-
-            // validate URL
-            try { new URL(rec.url); } catch (e) { core.setFailed('Invalid URL.'); return; }
-
-            // normalize platform to array if multiple selected (forms may separate by commas or newlines)
+            // Normalize platform: allow comma/newline separated or multi-select text
             if (rec.platform) {
               const parts = rec.platform.split(/,|\\n/).map(s=>s.trim()).filter(Boolean);
               rec.platform = parts.length > 1 ? parts : parts[0];
             }
 
-            // basic ISO date check (allow empty)
+            // Validate required fields with clear logging
+            let missing = [];
+            if (!rec.title) missing.push('Resource Name (or Issue Title)');
+            if (!rec.url) missing.push('URL');
+            if (!rec.resource_type) missing.push('Resource Type');
+
+            if (missing.length) {
+              core.error('Issue body received:\n' + body);
+              core.setFailed('Missing required fields: ' + missing.join(', ') + '.');
+              return;
+            }
+
+            // Basic URL sanity
+            try { new URL(rec.url); } catch (e) {
+              core.error('Parsed URL was: ' + rec.url);
+              core.setFailed('Invalid URL.');
+              return;
+            }
+
+            // Warn if date not ISO (allow empty)
             if (rec.publication_date && !/^\\d{4}-\\d{2}-\\d{2}$/.test(rec.publication_date)) {
-              core.warning('Publication Date is not YYYY-MM-DD; keeping raw value.');
+              core.warning('Publication Date is not YYYY-MM-DD; keeping raw value: ' + rec.publication_date);
             }
 
             const dataPath = path.join(process.env.GITHUB_WORKSPACE, 'data', 'resources.json');
             fs.mkdirSync(path.dirname(dataPath), { recursive: true });
+
             let items = [];
             if (fs.existsSync(dataPath)) {
-              try { items = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]'); } catch(e) { items = []; }
+              try { items = JSON.parse(fs.readFileSync(dataPath, 'utf8') || '[]'); }
+              catch(e) { core.warning('resources.json not parseable; starting fresh.'); items = []; }
             }
 
-            // prevent duplicates by URL
+            // Prevent duplicate by URL
             if (items.some(it => String((it.url||'')).toLowerCase() === rec.url.toLowerCase())) {
               core.warning('Duplicate URL detected; skipping append.');
               core.setOutput('skipped', 'true');
@@ -77,7 +109,6 @@ jobs:
             }
 
             items.push(rec);
-            // sort by Resource Name (title)
             items.sort((a,b)=>String(a.title||'').localeCompare(String(b.title||'')));
             fs.writeFileSync(dataPath, JSON.stringify(items, null, 2) + '\\n');
 
@@ -88,7 +119,7 @@ jobs:
         if: steps.parse.outputs.skipped != 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          # If your org blocks PRs by GITHUB_TOKEN, use: token: ${{ secrets.PAT_PR }}
+          # If your org blocks PRs from GITHUB_TOKEN, add: token: ${{ secrets.PAT_PR }}
           branch: ${{ steps.parse.outputs.branch }}
           commit-message: "Add resource from issue #${{ github.event.issue.number }}"
           title: "Add resource: ${{ github.event.issue.title || 'New resource' }}"
