@@ -5,5 +5,16 @@
     "category": "Tool",
     "description": "Beeindruckende digitale 3D-Modelle mit dazugehörigem Infotext, einem Bild und weiterführendem Video zu kreieren, klingt nach einer Aufgabe für ausgebildete Informatiker*innen oder Medienschaffende?",
     "tags": []
+  },
+  {
+    "title": "test",
+    "description": "test",
+    "category": "test",
+    "target_age_group": "14 – 18",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://andreahorvath-fhcw.github.io/iLRN-XRRepository/",
+    "platform": "Meta",
+    "publication_date": "2020-01-01"
   }
 ]
