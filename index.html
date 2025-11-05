@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>iLRN XR Repository</title>
   <link href="https://unpkg.com/tabulator-tables@5.6.2/dist/css/tabulator.min.css" rel="stylesheet" />
-  <script src="https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js"></script>
   <style>
     :root { --bg:#0b1020; --card:#121935; --text:#e8ebff; --muted:#aeb7e6; }
     body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif; margin:0; background:var(--bg); color:var(--text);}
@@ -19,13 +18,12 @@
     .btn{display:inline-flex; align-items:center; gap:8px; padding:10px 14px; border-radius:14px; border:1px solid #2a3564; background:linear-gradient(180deg,#1b2350,#152042); color:var(--text); text-decoration:none; font-weight:600;}
     .btn svg{width:18px; height:18px;}
     .card{background:var(--card); border:1px solid #263264; border-radius:18px; padding:14px;}
-    .tabulator{background:transparent; border:none;}
-    .tabulator .tabulator-header{background:transparent; border-bottom:1px solid #2a3564;}
-    .tabulator-row{background:transparent;}
-    .tabulator-row:hover{background:#0f1430;}
     .badge{display:inline-block; padding:3px 8px; border-radius:999px; background:#263264;}
     footer{color:var(--muted); font-size:12px; text-align:center; margin-top:24px;}
-    @media (max-width:700px){ .tabulator-col[tabulator-field="description"]{display:none;} }
+    table{width:100%; border-collapse:collapse;}
+    th,td{border-bottom:1px solid #2a3564; padding:10px; vertical-align:top;}
+    a.link{color:#a6b4ff; text-decoration:none; font-weight:600;}
+    @media (max-width:700px){ .col-desc{display:none;} }
   </style>
 </head>
 <body>
@@ -52,41 +50,71 @@
   </main>
 
   <script>
-    // Cache-busting so JSON updates show up immediately
+    // ---- Settings ----
     const DATA_URL = './data/resources.json?t=' + Date.now();
 
-    function uniq(values){ return [...new Set(values.filter(Boolean))]; }
-
-    async function fetchData(){
-      try{
-        const res = await fetch(DATA_URL, { cache: 'no-store' });
-        if(!res.ok) throw new Error('HTTP '+res.status);
-        const json = await res.json();
-        if (!Array.isArray(json)) {
-          console.error('resources.json must be an array of objects. Got:', json);
-          return [];
-        }
-        return json;
-      }catch(err){
-        console.error('Failed to load data/resources.json:', err);
-        return [];
-      }
+    // ---- Load JSON ----
+    async function getData(){
+      const res = await fetch(DATA_URL, { cache: 'no-store' });
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const json = await res.json();
+      if(!Array.isArray(json)) throw new Error('resources.json must be an array');
+      return json;
     }
 
-    let table, data = [], sel, q;
-    async function init(){
-      data = await fetchData();
-
-      sel = document.getElementById('categoryFilter');
-      q = document.getElementById('q');
-
-      // Populate categories from data
-      uniq(data.map(d=>d.category)).sort().forEach(c=>{
-        const opt = document.createElement('option');
-        opt.value = c; opt.textContent = c; sel.appendChild(opt);
+    // ---- Fallback plain table (no Tabulator) ----
+    function renderPlainTable(data){
+      // Populate category options
+      const sel = document.getElementById('categoryFilter');
+      [...new Set(data.map(d=>d.category).filter(Boolean))].sort().forEach(c=>{
+        const opt = document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt);
       });
 
-      table = new Tabulator('#table', {
+      const el = document.getElementById('table');
+      el.innerHTML = `
+        <table>
+          <thead><tr>
+            <th>Title</th><th>Category</th><th class="col-desc">Description</th><th>Tags</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>`;
+      const tbody = el.querySelector('tbody');
+
+      function rowHTML(r){
+        const tags = (r.tags||[]).map(t=>`<span class="badge">${t}</span>`).join(' ');
+        return `<tr>
+          <td><a class="link" href="${r.url||'#'}" target="_blank" rel="noopener">${r.title||''}</a></td>
+          <td>${r.category||''}</td>
+          <td class="col-desc">${(r.description||'').slice(0,160)}${(r.description||'').length>160?'…':''}</td>
+          <td>${tags}</td>
+        </tr>`;
+      }
+
+      function applyFilters(){
+        const term = (document.getElementById('q').value||'').toLowerCase().trim();
+        const cat = sel.value;
+        const filtered = data.filter(d=>{
+          const hay = [d.title,d.description,(d.tags||[]).join(' '),d.category].join(' ').toLowerCase();
+          const okQ = term ? hay.includes(term) : true;
+          const okC = cat ? d.category===cat : true;
+          return okQ && okC;
+        });
+        tbody.innerHTML = filtered.map(rowHTML).join('');
+      }
+
+      document.getElementById('q').addEventListener('input', applyFilters);
+      sel.addEventListener('change', applyFilters);
+      applyFilters();
+    }
+
+    // ---- Tabulator renderer ----
+    function renderTabulator(data){
+      const sel = document.getElementById('categoryFilter');
+      [...new Set(data.map(d=>d.category).filter(Boolean))].sort().forEach(c=>{
+        const opt = document.createElement('option'); opt.value=c; opt.textContent=c; sel.appendChild(opt);
+      });
+
+      const table = new Tabulator('#table', {
         data,
         layout: 'fitColumns',
         height: '600px',
@@ -97,7 +125,7 @@
           {title:'Title', field:'title', headerFilter:true, formatter:function(cell){
             const row = cell.getRow().getData();
             const url = row.url || '#';
-            return `<a href="${url}" target="_blank" rel="noopener" style="color:#a6b4ff; text-decoration:none; font-weight:600;">${cell.getValue()}</a>`;
+            return `<a href="${url}" target="_blank" rel="noopener" class="link">${cell.getValue()}</a>`;
           }},
           {title:'Category', field:'category', headerFilter:true, width:140, headerSort:true},
           {title:'Description', field:'description', headerFilter:true, formatter:function(cell){
@@ -110,7 +138,7 @@
       });
 
       function applyFilters(){
-        const term = (q.value || '').trim().toLowerCase();
+        const term = (document.getElementById('q').value||'').trim().toLowerCase();
         const cat = sel.value;
         table.setFilter(function(row){
           const hay = [row.title, row.description, (row.tags||[]).join(' '), row.category].join(' ').toLowerCase();
@@ -120,11 +148,43 @@
         });
       }
 
-      q.addEventListener('input', applyFilters);
+      document.getElementById('q').addEventListener('input', applyFilters);
       sel.addEventListener('change', applyFilters);
     }
 
-    init();
+    // ---- Load Tabulator w/ fallback ----
+    function loadTabulator(){
+      return new Promise((resolve, reject)=>{
+        const s = document.createElement('script');
+        s.src = 'https://unpkg.com/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
+        s.onload = ()=> resolve('unpkg');
+        s.onerror = ()=>{
+          const s2 = document.createElement('script');
+          s2.src = 'https://cdn.jsdelivr.net/npm/tabulator-tables@5.6.2/dist/js/tabulator.min.js';
+          s2.onload = ()=> resolve('jsdelivr');
+          s2.onerror = ()=> reject(new Error('Failed to load Tabulator from both CDNs'));
+          document.head.appendChild(s2);
+        };
+        document.head.appendChild(s);
+      });
+    }
+
+    // ---- Boot ----
+    (async function(){
+      try{
+        const data = await getData();
+        try{
+          await loadTabulator();
+          renderTabulator(data);
+        }catch(e){
+          console.warn(e.message + ' — rendering plain table instead.');
+          renderPlainTable(data);
+        }
+      }catch(err){
+        console.error('Data load error:', err);
+        document.getElementById('table').innerHTML = '<div style="color:#f8d7da">Failed to load data. See console.</div>';
+      }
+    })();
   </script>
 </body>
 </html>
