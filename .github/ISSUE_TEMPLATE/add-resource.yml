@@ -3,17 +3,12 @@ description: Propose a new resource for the directory
 labels: ["new resource"]
 body:
   - type: input
-    id: title
+    id: publication_date
     attributes:
-      label: Resource Name
-      placeholder: "Resource title"
-    validations: { required: true }
-
-  - type: textarea
-    id: description
-    attributes:
-      label: Description
-      placeholder: "One or two sentences"
+      label: Publication Date
+      description: "YYYY-MM-DD"
+      placeholder: "2025-11-05"
+    validations: { required: false }
 
   - type: input
     id: category
@@ -23,10 +18,11 @@ body:
     validations: { required: false }
 
   - type: dropdown
-    id: target_age_group
+    id: platform
     attributes:
-      label: Target Age Group
-      options: ["<10","10 – 14","14 – 18","18+"]
+      label: Platform
+      multiple: true
+      options: ["Web","Meta","Steam","Android","iOS","PICO","other"]
     validations: { required: false }
 
   - type: dropdown
@@ -36,11 +32,19 @@ body:
       options: ["publication","application","tool","other"]
     validations: { required: true }
 
-  - type: input
-    id: language
+  - type: dropdown
+    id: target_age_group
     attributes:
-      label: Language
-      placeholder: "e.g., English, German"
+      label: Target Age Group
+      options: ["<10","10 – 14","14 – 18","18+"]
+    validations: { required: false }
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: "One or two sentences"
+    validations: { required: false }
 
   - type: input
     id: url
@@ -49,16 +53,9 @@ body:
       placeholder: "https://…"
     validations: { required: true }
 
-  - type: dropdown
-    id: platform
-    attributes:
-      label: Platform
-      multiple: true
-      options: ["Web","Meta","Steam","Android","iOS","PICO","other"]
-
   - type: input
-    id: publication_date
+    id: title
     attributes:
-      label: Publication Date
-      description: "YYYY-MM-DD"
-      placeholder: "2025-11-05"
+      label: Resource Name
+      placeholder: "Resource title"
+    validations: { required: true }
