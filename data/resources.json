@@ -7,6 +7,22 @@
     "tags": []
   },
   {
+    "title": "Anne Frank House VR",
+    "description": "Explore the hiding place of Anne Frank and her family in virtual reality using the ‘Anne Frank House VR’ app. The app provides a very special view into the Secret Annex where Anne Frank and the seven other people hid during WWII.",
+    "category": "Historical reconstruction",
+    "target_age_group": "18+",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://www.annefrank.org/en/about-us/what-we-do/publications/anne-frank-house-virtual-reality/",
+    "platform": [
+      "Meta",
+      "Steam",
+      "PICO",
+      "other"
+    ],
+    "publication_date": "2024-04-10"
+  },
+  {
     "title": "test",
     "description": "test",
     "category": "test",
