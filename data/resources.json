@@ -1,12 +1,5 @@
 [
   {
-    "title": "3DQR-Plus",
-    "url": "https://studio.3dqr.de/#/pages/arscenes/all?page=1&view=tiles&sort=createdAt&order=desc",
-    "category": "Tool",
-    "description": "Beeindruckende digitale 3D-Modelle mit dazugehörigem Infotext, einem Bild und weiterführendem Video zu kreieren, klingt nach einer Aufgabe für ausgebildete Informatiker*innen oder Medienschaffende?",
-    "tags": []
-  },
-  {
     "title": "Anne Frank House VR",
     "description": "Explore the hiding place of Anne Frank and her family in virtual reality using the ‘Anne Frank House VR’ app. The app provides a very special view into the Secret Annex where Anne Frank and the seven other people hid during WWII.",
     "category": "Historical reconstruction",
@@ -32,9 +25,10 @@
     "url": "https://www.spatial.io/about",
     "platform": [
       "Web",
-      "Meta"
-    ],
+      "Meta"],
     "publication_date": "2017-01-01"
+  },
+  {
     "title": "Google Earth VR",
     "description": "Ten years ago, Google Earth began as an effort to help people everywhere explore our planet. And now, with more than two billion downloads, many have. Today, we are introducing Google Earth VR as our next step to help the world see the world. With Earth VR, you can fly over a city, stand at the top of the highest peaks, walk along new streets, and even soar into space.",
     "category": "Educational, Exploration, Travel",
@@ -48,17 +42,6 @@
       "Steam"
     ],
     "publication_date": "2017-04-18"
-  },
-  {
-    "title": "test",
-    "description": "test",
-    "category": "test",
-    "target_age_group": "14 – 18",
-    "resource_type": "application",
-    "language": "",
-    "url": "https://andreahorvath-fhcw.github.io/iLRN-XRRepository/",
-    "platform": "Meta",
-    "publication_date": "2020-01-01"
   },
   {
     "title": "The Phoenix of Gaza",
