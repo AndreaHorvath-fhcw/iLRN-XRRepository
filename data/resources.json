@@ -16,17 +16,18 @@
     "publication_date": "2024-04-10"
   },
   {
-    "title": "Spatial.io",
-    "description": "Web-based app for creating VR-enabled spaces with no code required. Choose a space template or create your own, import and place models or images, add labels and text if you like, then explore and share! Spaces are multi-player, and world interactions are also available for more advanced users. Models of various formats may be imported, as well as downloadable Sketchfab assets.",
-    "category": "World-building",
-    "target_age_group": "None",
+    "title": "Escape Fake",
+    "description": "Investigate the past, change the future",
+    "category": "Media competence",
+    "target_age_group": "14 – 18",
     "resource_type": "application",
     "language": "",
-    "url": "https://www.spatial.io/about",
+    "url": "https://escapefake.org/de/",
     "platform": [
-      "Web",
-      "Meta"],
-    "publication_date": "2017-01-01"
+      "Android",
+      "iOS"
+    ],
+    "publication_date": "_No response_"
   },
   {
     "title": "Google Earth VR",
@@ -42,6 +43,20 @@
       "Steam"
     ],
     "publication_date": "2017-04-18"
+  },
+  {
+    "title": "Spatial.io",
+    "description": "Web-based app for creating VR-enabled spaces with no code required. Choose a space template or create your own, import and place models or images, add labels and text if you like, then explore and share! Spaces are multi-player, and world interactions are also available for more advanced users. Models of various formats may be imported, as well as downloadable Sketchfab assets.",
+    "category": "World-building",
+    "target_age_group": "None",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://www.spatial.io/about",
+    "platform": [
+      "Web",
+      "Meta"
+    ],
+    "publication_date": "2017-01-01"
   },
   {
     "title": "The Phoenix of Gaza",
