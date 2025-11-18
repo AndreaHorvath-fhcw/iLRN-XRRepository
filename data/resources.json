@@ -16,19 +16,6 @@
     "publication_date": "2024-04-10"
   },
   {
-    "title": "Spatial.io",
-    "description": "Web-based app for creating VR-enabled spaces with no code required. Choose a space template or create your own, import and place models or images, add labels and text if you like, then explore and share! Spaces are multi-player, and world interactions are also available for more advanced users. Models of various formats may be imported, as well as downloadable Sketchfab assets.",
-    "category": "World-building",
-    "target_age_group": "None",
-    "resource_type": "application",
-    "language": "",
-    "url": "https://www.spatial.io/about",
-    "platform": [
-      "Web",
-      "Meta"],
-    "publication_date": "2017-01-01"
-  },
-  {
     "title": "Google Earth VR",
     "description": "Ten years ago, Google Earth began as an effort to help people everywhere explore our planet. And now, with more than two billion downloads, many have. Today, we are introducing Google Earth VR as our next step to help the world see the world. With Earth VR, you can fly over a city, stand at the top of the highest peaks, walk along new streets, and even soar into space.",
     "category": "Educational, Exploration, Travel",
@@ -44,6 +31,20 @@
     "publication_date": "2017-04-18"
   },
   {
+    "title": "Spatial.io",
+    "description": "Web-based app for creating VR-enabled spaces with no code required. Choose a space template or create your own, import and place models or images, add labels and text if you like, then explore and share! Spaces are multi-player, and world interactions are also available for more advanced users. Models of various formats may be imported, as well as downloadable Sketchfab assets.",
+    "category": "World-building",
+    "target_age_group": "None",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://www.spatial.io/about",
+    "platform": [
+      "Web",
+      "Meta"
+    ],
+    "publication_date": "2017-01-01"
+  },
+  {
     "title": "The Phoenix of Gaza",
     "description": "In this immersive journalism project, Prof. Ahlam Muhtaseb (Communication & Media), alumnus Naim Aburaddi and James Trotter use 360-degree photo and video to offer an anti-colonial lens through which to experience life in Gaza from the perspective of its inhabitants. NOTE: This project documents aspects of life in Gaza before the destruction of much of the urban fabric following the attacks of 7 October 2023. The URL provided gives limited elements of the project.",
     "category": "Documentation, Journalism",
@@ -53,5 +54,19 @@
     "url": "https://csusb-ati.h5p.com/content/1291733366905577938",
     "platform": "Web",
     "publication_date": "22-08-30"
+  },
+  {
+    "title": "WDR AR 1933-1945",
+    "description": "The \"WDR AR 1933-1945\" app brings eyewitnesses of the Second World War and their stories into the classroom – via smartphone or tablet.",
+    "category": "History",
+    "target_age_group": "14 – 18",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://www1.wdr.de/fernsehen/unterwegs-im-westen/ar-app/index.html",
+    "platform": [
+      "Android",
+      "iOS"
+    ],
+    "publication_date": "_No response_"
   }
 ]
