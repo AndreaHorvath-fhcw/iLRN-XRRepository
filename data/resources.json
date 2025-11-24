@@ -66,6 +66,16 @@
     "platform": [
       "Steam",
       "other"
+    "title": "WDR AR 1933-1945",
+    "description": "The \"WDR AR 1933-1945\" app brings eyewitnesses of the Second World War and their stories into the classroom – via smartphone or tablet.",
+    "category": "History",
+    "target_age_group": "14 – 18",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://www1.wdr.de/fernsehen/unterwegs-im-westen/ar-app/index.html",
+    "platform": [
+      "Android",
+      "iOS"
     ],
     "publication_date": "_No response_"
   }
