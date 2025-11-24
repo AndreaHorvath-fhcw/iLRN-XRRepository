@@ -16,6 +16,20 @@
     "publication_date": "2024-04-10"
   },
   {
+    "title": "Escape Fake",
+    "description": "Investigate the past, change the future",
+    "category": "Media competence",
+    "target_age_group": "14 – 18",
+    "resource_type": "application",
+    "language": "",
+    "url": "https://escapefake.org/de/",
+    "platform": [
+      "Android",
+      "iOS"
+    ],
+    "publication_date": "_No response_"
+  },
+  {
     "title": "Google Earth VR",
     "description": "Ten years ago, Google Earth began as an effort to help people everywhere explore our planet. And now, with more than two billion downloads, many have. Today, we are introducing Google Earth VR as our next step to help the world see the world. With Earth VR, you can fly over a city, stand at the top of the highest peaks, walk along new streets, and even soar into space.",
     "category": "Educational, Exploration, Travel",
